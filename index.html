@@ -332,22 +332,20 @@ body::before{
 #btn-close-rules:hover{border-color:rgba(0,0,0,.2);background:#fafafa;}
 #btn-close-rules:active{transform:scale(.96);}
 
-.mode-selector{display:flex;gap:12px;position:relative;z-index:1;margin-top:-8px;}
+.mode-selector{display:flex;gap:12px;position:relative;z-index:1;margin-top:-8px;width:min(100%,308px);}
 .mode-btn{
   background:#fff;
   border:2px solid rgba(0,0,0,.35);
-  border-radius:16px;padding:12px 22px;
+  border-radius:16px;padding:12px;
   cursor:pointer;transition:all .2s;
-  display:flex;flex-direction:column;align-items:center;gap:5px;
-  min-width:115px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1 1 0;max-width:148px;min-width:115px;min-height:83.6px;
   box-shadow:0 2px 8px rgba(0,0,0,.12);
 }
 .mode-btn:hover{border-color:var(--cyan);background:#e5f6fa;box-shadow:0 0 0 2px var(--cyan),0 2px 8px rgba(0,0,0,.12);}
 .mode-btn.selected{border-color:var(--cyan);background:#fff;box-shadow:0 0 0 2px var(--cyan),0 0 10px rgba(0,188,212,.4);}
 .mode-btn.selected:hover{background:#e5f6fa;box-shadow:0 0 0 3px var(--cyan),0 0 12px rgba(0,188,212,.5);}
-.mode-btn .mode-icon{font-size:26px;}
 .mode-btn .mode-label{font-family:'Baloo 2',sans-serif;font-weight:900;font-size:18px;color:#333;letter-spacing:.5px;}
-.mode-btn .mode-sub{font-size:13px;color:#666;}
 
 #btn-baslat{
   background:linear-gradient(135deg,var(--cyan),#0288d1);
@@ -463,12 +461,10 @@ body::before{
   /* Ana sayfa (menü) da aynı kısa ekranda taşmasın */
   #anasayfa-ekrani{padding:8px;gap:6px;overflow-y:auto;}
   .home-title{font-size:clamp(14px,4.5vh,22px);}
-  .mode-selector{margin-top:0;}
+  .mode-selector{margin-top:0;width:min(100%,262px);}
   .home-rules,.rules-trigger-btn{padding:6px 16px;font-size:12px;}
-  .mode-btn{padding:6px 14px;min-width:90px;gap:2px;}
-  .mode-btn .mode-icon{font-size:16px;}
+  .mode-btn{padding:6px 14px;max-width:125px;min-width:90px;min-height:72.4px;}
   .mode-btn .mode-label{font-size:13px;}
-  .mode-btn .mode-sub{font-size:10px;}
   #btn-baslat{padding:8px 28px;font-size:clamp(13px,4vh,18px);}
   .mute-btn{width:24px;height:24px;top:4px;}
 
@@ -503,14 +499,10 @@ body::before{
 
   <div class="mode-selector">
     <div class="mode-btn selected" id="btn-mode-1vsBot" onclick="selectMode('1vsBot')">
-      <div class="mode-icon"></div>
-      <div class="mode-label">Tek Kişi</div>
-      <div class="mode-sub">Bilgisayara Karşı</div>
+      <div class="mode-label">Tek Kişilik</div>
     </div>
     <div class="mode-btn" id="btn-mode-2" onclick="selectMode('2')">
-      <div class="mode-icon"></div>
-      <div class="mode-label">2 Kişilik</div>
-      <div class="mode-sub">Yüz yüze düello</div>
+      <div class="mode-label">İki Kişilik</div>
     </div>
   </div>
 
@@ -526,6 +518,9 @@ body::before{
     <div class="rule-line"><div class="rule-dot" style="background:var(--cyan)"></div><span>Tuşları kullanarak çarpma işlemi sorularına cevap ver.</span></div>
     <div class="rule-line"><div class="rule-dot" style="background:var(--lime)"></div><span>Her doğru cevapta kangurumuz bir adım ilerler. Yanlış cevapta kanguru olduğu yerde kalır.</span></div>
     <div class="rule-line"><div class="rule-dot" style="background:var(--gold)"></div><span>10 soruyu ilk doğru yanıtlayan oyunu kazanır.</span></div>
+    <div class="rule-line"><div class="rule-dot" style="background:var(--p1)"></div><span>Tek kişilikte klavye: üst sıra rakamları veya numpad, Enter = TAMAM, Backspace = SİL.</span></div>
+    <div class="rule-line"><div class="rule-dot" style="background:var(--p1)"></div><span>İki kişilikte klavye: 1. oyuncu üst sıra rakamları, Enter = TAMAM, Backspace = SİL.</span></div>
+    <div class="rule-line"><div class="rule-dot" style="background:var(--p2)"></div><span>2. oyuncu sağdaki numpad, Enter = TAMAM, + = SİL (numpad yoksa fare/dokunmatik).</span></div>
     <button id="btn-close-rules" onclick="hideRules()">✕ KAPAT</button>
   </div>
 </div>
@@ -803,28 +798,82 @@ function processInput(p, val) {
   disp.classList.toggle('has-input', gs.input.length>0);
 }
 
+// ─── KLAVYE ───
+// 2 kişilik: 1. oyuncu üst sıra rakamları, Enter = TAMAM, Backspace = SİL
+//            2. oyuncu numpad rakamları, numpad Enter = TAMAM, numpad + = SİL
+// Tek kişilik: iki tuş grubu da (üst sıra ve numpad) insan oyuncu için çalışır.
+// Fiziksel tuş koduna (event.code) bakıldığı için klavye dili fark etmez.
+const KEYS_P1 = { Enter:'OK', Backspace:'C' };
+const KEYS_P2 = { NumpadEnter:'OK', NumpadAdd:'C' };
+for (let i = 0; i <= 9; i++) { KEYS_P1['Digit'+i] = String(i); KEYS_P2['Numpad'+i] = String(i); }
+
+function isGameScreenActive() {
+  return document.getElementById('anasayfa-ekrani').style.display === 'none'
+      && document.getElementById('win-screen').style.display !== 'flex'
+      && document.getElementById('rules-modal').style.display !== 'flex';
+}
+
+document.addEventListener('keydown', e => {
+  if (!isGameScreenActive()) return;
+  if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+  let p = 1, val = KEYS_P1[e.code];
+  if (val === undefined) { p = currentMode === '2' ? 2 : 1; val = KEYS_P2[e.code]; }
+  if (val === undefined) return;
+  e.preventDefault();
+  if (gameState[1].pos >= 10 || gameState[2].pos >= 10) return;
+  processInput(p, val);
+});
+
 // ─── SORU LİSTESİ ───
 // 3 soru tipi: (A) rakam × rakam, (B) 10–17 × 5, (C) 1–10 × 10/100/1000
 // Her oyuncunun kendi listesi vardır; her 3'lük blokta her tipten birer soru bulunur.
 // Böylece iki oyuncu her tipten eşit sayıda soru alır, ama sorular ve sıraları farklıdır.
+// Bir tipin soruları, o tipin havuzu bitmeden tekrar sorulmaz (a×b ile b×a aynı soru sayılır).
 
-function randInt(min, max) { return Math.floor(Math.random()*(max-min+1))+min; }
-
-function makeQuestion(type) {
-  let a, b;
-  if (type === 'A') {          // Rakamlarla çarpma (eskisi gibi)
-    a = randInt(0, 9); b = randInt(0, 9);
-  } else if (type === 'B') {   // 10–17 arası sayıların 5 ile çarpımı
-    a = randInt(10, 17); b = 5;
-  } else {                     // 1–10 arası sayıların 10, 100, 1000 ile çarpımı
-    a = randInt(1, 10); b = [10, 100, 1000][randInt(0, 2)];
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  // Çarpanların yerini rastgele değiştir (5 × 12 ya da 12 × 5 gibi)
-  if (type !== 'A' && Math.random() < 0.5) { const t = a; a = b; b = t; }
-  return { text: `${a} × ${b}`, ans: a*b };
+  return arr;
+}
+
+// Bir tipin tüm farklı soruları; 10×5 zaten B'de olduğu için C'ye konmaz
+function buildPool(type) {
+  const pool = [];
+  if (type === 'A') {          // rakam × rakam
+    for (let a = 0; a <= 9; a++) for (let b = a; b <= 9; b++) pool.push([a, b]);
+  } else if (type === 'B') {   // 10–17 arası sayıların 5 ile çarpımı
+    for (let a = 10; a <= 17; a++) pool.push([a, 5]);
+  } else {                     // 1–10 arası sayıların 10, 100, 1000 ile çarpımı
+    for (let a = 1; a <= 10; a++) for (const b of [10, 100, 1000]) {
+      if (a === 5 && b === 10) continue;
+      pool.push([a, b]);
+    }
+  }
+  return pool;
 }
 
 function buildQuestionDeck() {
+  const queues = { A: [], B: [], C: [] };
+  const lastDrawn = {};
+
+  const draw = type => {
+    let q = queues[type];
+    if (q.length === 0) {                    // havuz bitti: yeniden karıştır
+      q = queues[type] = shuffle(buildPool(type));
+      const l = lastDrawn[type], n = q[q.length-1];
+      if (l && n[0] === l[0] && n[1] === l[1]) {   // yeni turun ilk sorusu öncekiyle aynı olmasın
+        [q[0], q[q.length-1]] = [q[q.length-1], q[0]];
+      }
+    }
+    const pair = q.pop();
+    lastDrawn[type] = pair;
+    let [a, b] = pair;
+    if (a !== b && Math.random() < 0.5) [a, b] = [b, a];   // 5 × 12 ya da 12 × 5
+    return { text: `${a} × ${b}`, ans: a*b };
+  };
+
   const deck = [];
   for (let i = 0; i < 100; i++) {          // 100 blok = 300 soru (yanlışlar için bol pay)
     const block = ['A', 'B', 'C'];
@@ -832,7 +881,7 @@ function buildQuestionDeck() {
       const k = Math.floor(Math.random()*(j+1));
       [block[j], block[k]] = [block[k], block[j]];
     }
-    block.forEach(t => deck.push(makeQuestion(t)));
+    block.forEach(t => deck.push(draw(t)));
   }
   return deck;
 }
